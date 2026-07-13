@@ -1,0 +1,226 @@
+// Prisma schema for Voyagr, migrated from Convex.
+// MongoDB has no server-side migrations - after editing this file, run:
+//   npx prisma db push
+//   npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ---- Composite types (embedded documents, mirroring convex/schema.ts's nested objects) ----
+
+type Coordinates {
+  lat Float
+  lng Float
+}
+
+type PlaceToVisit {
+  name        String
+  coordinates Coordinates
+}
+
+type ItineraryActivity {
+  itineraryItem    String
+  briefDescription String
+  // "Personalized Explanations" - why this activity suits the traveller's
+  // explicit profile (preferences/companion/pace/budget) and the immediate
+  // environment (live weather at generation time). LLM-generated.
+  contextualReasoning String?
+  // Coordinates of this specific activity, LLM-generated, used to compute
+  // transitTimeMinutes below - not guaranteed present for manually
+  // (non-AI) authored itinerary days.
+  coordinates      Coordinates?
+  // "indoor" | "outdoor" | "all" - LLM-generated, used by the weather-forecast
+  // suitability check (app/api/plans/[planId]/weather-forecast) to flag days
+  // whose outdoor activities clash with the forecast, once one is available.
+  weatherAlign     String?
+  // Estimated travel time in minutes from the previous activity in the same
+  // day's chronological sequence (null for the first activity of a day).
+  // Computed deterministically via Haversine distance, not LLM-generated -
+  // see lib/server/geo.ts.
+  transitTimeMinutes Int?
+}
+
+type ItineraryActivities {
+  morning   ItineraryActivity[]
+  afternoon ItineraryActivity[]
+  evening   ItineraryActivity[]
+}
+
+type ItineraryDay {
+  title      String
+  activities ItineraryActivities
+}
+
+type ContentGenerationState {
+  imagination                 Boolean
+  abouttheplace                Boolean
+  adventuresactivitiestodo     Boolean
+  topplacestovisit              Boolean
+  itinerary                     Boolean
+  localcuisinerecommendations   Boolean
+  packingchecklist                Boolean
+  besttimetovisit                  Boolean
+}
+
+// A candidate point of interest proposed by the LLM before the deterministic
+// recommendation engine filters/ranks it (see lib/server/recommendationEngine.ts).
+// Mirrors the tuple p = <Cp, Wp, Topen, Tclose, Costp, Lp> from the dissertation's
+// rule-based baseline formulation (section 3.4.1).
+type CandidatePoi {
+  name           String
+  category       String
+  weatherAlign   String // "indoor" | "outdoor" | "all"
+  openTime       String // "HH:mm"
+  closeTime      String // "HH:mm"
+  cost           Float
+  coordinates    Coordinates
+  score          Float // recommendation-engine rank score, higher is better
+}
+
+// ---- Collections ----
+
+model Plan {
+  id                         String                 @id @default(auto()) @map("_id") @db.ObjectId
+  userId                     String
+  isGeneratedUsingAI         Boolean
+  nameoftheplace             String
+  userPrompt                 String
+  abouttheplace              String                 @default("")
+  adventuresactivitiestodo   String[]
+  topplacestovisit           PlaceToVisit[]
+  packingchecklist           String[]
+  localcuisinerecommendations String[]
+  besttimetovisit            String                 @default("")
+  itinerary                  ItineraryDay[]
+  contentGenerationState     ContentGenerationState
+  imageUrl                   String?
+  imageKey                   String?
+  recommendedPois            CandidatePoi[]
+  createdAt                  DateTime               @default(now())
+
+  @@index([userId])
+}
+
+// Auth.js (Credentials + JWT sessions, no adapter/database sessions - see
+// auth.ts) uses this directly. id (Prisma's own ObjectId) is the canonical
+// user identifier throughout the app - every other model's "userId" field
+// stores this value, not a separate external auth-provider id.
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  email        String   @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  createdAt    DateTime @default(now())
+}
+
+enum ExpenseCategory {
+  food
+  commute
+  shopping
+  gifts
+  accomodations
+  others
+}
+
+// Splitwise-style split: who owes what for this expense, in the plan's
+// preferred currency, always summing to exactly Expense.amount (see
+// lib/splitwise.ts's normalizeSplit, which handles the remainder-cent
+// rounding needed to guarantee that). Empty on expenses added before this
+// field existed - lib/splitwise.ts's computeBalances treats an empty splits
+// array as "not shared" and excludes it from balances entirely, rather than
+// guessing who benefited.
+type ExpenseSplit {
+  userId String
+  amount Float
+}
+
+model Expense {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  planId    String          @db.ObjectId
+  userId    String
+  amount    Float
+  purpose   String
+  category  ExpenseCategory
+  date      String
+  splits    ExpenseSplit[]
+  createdAt DateTime        @default(now())
+
+  @@index([planId])
+}
+
+model Invite {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  planId    String   @db.ObjectId
+  email     String
+  token     String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([planId, email])
+  @@index([planId])
+}
+
+model Access {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  planId String @db.ObjectId
+  userId String
+  email  String
+
+  @@index([planId])
+  @@index([userId])
+  @@index([planId, userId])
+}
+
+enum FeedbackLabel {
+  issue
+  idea
+  question
+  complaint
+  featurerequest
+  other
+}
+
+model Feedback {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String
+  planId    String?       @db.ObjectId
+  message   String
+  label     FeedbackLabel
+  createdAt DateTime      @default(now())
+
+  @@index([planId])
+  @@index([userId])
+}
+
+model PlanSettings {
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
+  planId              String    @unique @db.ObjectId
+  userId              String
+  currencyCode        String?
+  activityPreferences String[]
+  fromDate            DateTime?
+  toDate              DateTime?
+  companion           String?
+  travelPace          String?
+  budget              Float?
+  isPublished         Boolean?  @default(false)
+  createdAt           DateTime  @default(now())
+
+  @@index([userId])
+  @@index([isPublished])
+  @@index([isPublished, companion, createdAt])
+}
+
+// Replaces @convex-dev/rate-limiter's fixed-window limiter for email invites.
+model RateLimit {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  key         String   @unique
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+}
