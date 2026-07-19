@@ -1,0 +1,83 @@
+import type { Plan } from "@prisma/client";
+import navigationSvg from "@/public/card-navigation.svg";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
+import Image from "next/image";
+import { CalendarDaysIcon, MapPin, PlaneIcon } from "lucide-react";
+import { TooltipContainer } from "@/components/shared/Toolip";
+import { getFormattedDateRange } from "@/lib/utils";
+
+type PlanCardProps = {
+  // fromDate/toDate come back from the API as epoch-millis numbers (see
+  // lib/server/serialize.ts), not Prisma's PlanSettings' native Date type.
+  plan: Plan & { isSharedPlan: boolean; fromDate?: number; toDate?: number };
+  isPublic?: boolean;
+};
+
+const PlanCard = ({ plan, isPublic = false }: PlanCardProps) => {
+  return (
+    <Link
+      role="article"
+      href={
+        isPublic
+          ? `/plans/${plan.id}/community-plan`
+          : `/plans/${plan.id}/plan`
+      }
+      className="flex justify-center items-center shadow-lg"
+    >
+      <Card
+        className="w-64 md:w-72 flex-1
+                       h-[250px] rounded-lg cursor-pointer overflow-hidden group/card hover:shadow-md"
+      >
+        <CardContent className="w-full flex flex-col gap-4 h-full overflow-hidden">
+          <div className="relative h-full w-full">
+            <Image
+              role="figure"
+              alt="travelpic"
+              src={plan.imageUrl ?? navigationSvg}
+              fill={true}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="relative -z-1 object-cover rounded-t-lg w-full group-hover/card:scale-105 transition ease-in-out duration-500"
+              priority={plan.imageUrl ? false : true}
+            />
+            {plan.isSharedPlan && (
+              <TooltipContainer text="This plan had been shared to you">
+                <div className="absolute right-1 top-1 bg-white rounded-lg p-1 text-sm shadow-lg text-gray-600">
+                  Shared
+                </div>
+              </TooltipContainer>
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4 text-white">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold">
+                    {plan.nameoftheplace}
+                  </h3>
+                  {plan.fromDate && plan.toDate && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CalendarDaysIcon className="h-4 w-4" />
+                      <span>
+                        {getFormattedDateRange(
+                          new Date(plan.fromDate),
+                          new Date(plan.toDate),
+                          "PP"
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+};
+
+export default PlanCard;
