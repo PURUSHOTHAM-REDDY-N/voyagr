@@ -1,0 +1,58 @@
+services:
+  # Prisma's MongoDB connector requires the database to run as a replica set
+  # (even a single node) - it uses replica-set transactions internally for
+  # nested writes. The healthcheck below both waits for mongod to be up and
+  # initiates that single-node replica set on first boot.
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: >
+        mongosh --quiet --eval "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  # One-shot: pushes prisma/schema.prisma (collections' indexes etc.) to the
+  # mongo service above, then exits. `app` waits for this to finish rather
+  # than racing it.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migrator
+    environment:
+      DATABASE_URL: mongodb://mongo:27017/voyagr?replicaSet=rs0
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* values get baked into the client bundle at build
+        # time - Compose resolves these from the same .env file below.
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        NEXT_PUBLIC_HOSTING_URL: ${NEXT_PUBLIC_HOSTING_URL}
+    env_file:
+      - .env
+    environment:
+      # Overrides whatever DATABASE_URL is in .env (e.g. an Atlas URL used
+      # for local `next dev`) - `docker compose up` is self-contained and
+      # always talks to the bundled mongo service, never an external DB.
+      DATABASE_URL: mongodb://mongo:27017/voyagr?replicaSet=rs0
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
