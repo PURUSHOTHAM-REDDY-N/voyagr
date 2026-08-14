@@ -6,6 +6,7 @@ import { uploadImageFromUrl } from "@/lib/s3";
 import { withRetry } from "@/lib/server/retry";
 import { recommendPois, CandidatePoiInput, RankedPoi } from "@/lib/server/recommendationEngine";
 import { getCurrentWeatherState } from "@/lib/server/weather";
+import { fetchPlaceOpeningHours } from "@/lib/server/googlePlaces";
 import { withTransitTimes } from "@/lib/server/geo";
 import { geocodePlaceName, getDailyForecast } from "@/lib/server/openMeteo";
 
@@ -373,7 +374,18 @@ export async function generateRecommendedPois(planId: string): Promise<Recommend
 
       const { candidates } = parseFunctionCallArguments<{ candidates: CandidatePoiInput[] }>(completion);
 
-      const ranked = recommendPois(candidates, {
+      // The LLM only guesses "typical" hours - overwrite with the real thing
+      // where Places has it, so ftime()'s open-now filter isn't ranking
+      // candidates against a hallucination. Falls back to the LLM's guess
+      // per-candidate (rather than failing the whole batch) on a lookup miss.
+      const candidatesWithRealHours = await Promise.all(
+        candidates.map(async (candidate) => {
+          const hours = await fetchPlaceOpeningHours(`${candidate.name}, ${plan.nameoftheplace}`);
+          return hours ? { ...candidate, ...hours } : candidate;
+        })
+      );
+
+      const ranked = recommendPois(candidatesWithRealHours, {
         weatherState,
         activityPreferences: planSettings?.activityPreferences,
         budget: planSettings?.budget ?? undefined,
