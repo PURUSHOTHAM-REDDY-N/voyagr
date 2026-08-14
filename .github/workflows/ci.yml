@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    env:
+      # Neither Prisma's client generation nor `next build` needs a reachable
+      # database - `prisma generate` only needs the schema to be well-formed,
+      # and prisma.config.ts's env("DATABASE_URL") throws if the variable is
+      # entirely unset. Mirrors the same placeholder used in the Dockerfile.
+      DATABASE_URL: mongodb://placeholder/placeholder
+      # NEXT_PUBLIC_* values are inlined into the client bundle at build time,
+      # not read at runtime, so a build-only placeholder is enough here too.
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ci-placeholder
+      NEXT_PUBLIC_HOSTING_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # --legacy-peer-deps: this project pins next@14.0.4 while some deps
+      # (e.g. next-auth@beta) declare newer peer ranges - same flag the
+      # Dockerfile and local installs use.
+      - run: npm ci --legacy-peer-deps
+
+      # Generates node_modules/.prisma/client - there's no postinstall hook,
+      # so both the Jest suite (jest-mock-extended's mockDeep<PrismaClient>)
+      # and `next build` need this run explicitly first.
+      - run: npx prisma generate
+
+      - run: npm test
+
+      - run: npm run build
+
+      # Lint is intentionally not run here: `next lint` has never been
+      # configured in this repo (no eslint config, eslint/eslint-config-next
+      # not installed) - it would hit Next's interactive first-run setup
+      # wizard rather than actually lint anything. Add an .eslintrc and the
+      # eslint/eslint-config-next devDependencies, then add a `- run: npm run
+      # lint` step here, if you want that gate too.
