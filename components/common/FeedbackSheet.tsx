@@ -76,9 +76,9 @@ export default function FeedbackSheet() {
       </TooltipContainer>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>We Value Your Feedback!</SheetTitle>
+          <SheetTitle>Your Feedback!</SheetTitle>
           <SheetDescription>
-            Please take a moment to share your thoughts and help us improve.
+            Please take a moment to share your thoughts and help this improve.
           </SheetDescription>
         </SheetHeader>
         <Form {...form}>
