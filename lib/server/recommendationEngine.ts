@@ -25,6 +25,16 @@ export type CandidatePoiInput = {
   closeTime: string; // "HH:mm"
   cost: number;
   coordinates: { lat: number; lng: number };
+  /**
+   * Provenance of openTime/closeTime, tracked so the temporal gate is only
+   * ever enforced against authoritative data:
+   *   true  = VERIFIED     (real hours from Google Places)
+   *   false = MODEL_ESTIMATE (the LLM's pre-grounding guess; a Places miss)
+   *   undefined = treated as verified, for callers/tests that supply real hours directly.
+   * A MODEL_ESTIMATE is displayed but never used to hard-reject a candidate,
+   * so the engine's opening-hours guarantee holds only where it is grounded.
+   */
+  hoursVerified?: boolean;
 };
 
 export type WeatherState = "Clear" | "Clouds" | "Rain" | "Drizzle" | "Thunderstorm" | "Snow" | "Mist" | string;
@@ -43,6 +53,32 @@ export type RecommendationContext = {
 };
 
 export type RankedPoi = CandidatePoiInput & { score: number };
+
+export type BudgetTier = "low" | "medium" | "high";
+
+/**
+ * The traveller picks a spending tier (lib/constants.tsx's BUDGET_OPTIONS),
+ * not an arbitrary number - this is the single place that tier is translated
+ * into the numeric B_max the engine's fuser()/score() actually operate on.
+ *
+ * Candidate cost is destination-local-currency, per generateCandidatePois's
+ * prompt ("approximate cost per person... in the local currency") - these
+ * caps are flat across destinations/currencies, which is a known
+ * simplification (a fixed cap means something different in Tokyo yen than
+ * in Paris euros). The free-typed numeric input this replaced had the exact
+ * same ambiguity, so this is not a regression - just not yet solved.
+ */
+export const BUDGET_TIER_CAPS: Record<BudgetTier, number> = {
+  low: 20,
+  medium: 50,
+  high: 150,
+};
+
+/** Returns undefined (no cap enforced) for an unset or unrecognised tier. */
+export function budgetTierToCap(tier: string | null | undefined): number | undefined {
+  if (!tier) return undefined;
+  return BUDGET_TIER_CAPS[tier as BudgetTier];
+}
 
 const BAD_WEATHER_STATES = new Set(["Rain", "Drizzle", "Thunderstorm", "Snow"]);
 
@@ -93,8 +129,16 @@ export function fweather(poi: CandidatePoiInput, weatherState: WeatherState | un
   return isWeatherCompatible(poi.weatherAlign, weatherState);
 }
 
-/** Temporal allocation pass: open now, with at least minStayMinutes before closing. */
+/**
+ * Temporal allocation pass: open now, with at least minStayMinutes before
+ * closing. The gate is enforced only against VERIFIED hours: when the hours are
+ * a MODEL_ESTIMATE (hoursVerified === false, i.e. Google Places had no record
+ * and the LLM's guess was kept), the candidate is not hard-rejected on time,
+ * because the engine must not assert an opening-hours fact it could not ground.
+ * Such a candidate is instead surfaced flagged as an estimate.
+ */
 export function ftime(poi: CandidatePoiInput, currentTime: Date, minStayMinutes: number): boolean {
+  if (poi.hoursVerified === false) return true; // MODEL_ESTIMATE - never authoritative, do not enforce
   const openMin = parseMinutesSinceMidnight(poi.openTime);
   const closeMin = parseMinutesSinceMidnight(poi.closeTime);
   if (openMin === null || closeMin === null) return true; // malformed hours - do not penalise

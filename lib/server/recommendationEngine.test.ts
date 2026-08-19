@@ -88,6 +88,17 @@ describe("ftime", () => {
   it("does not penalize malformed operating hours", () => {
     expect(ftime(poi({ openTime: "not-a-time", closeTime: "17:00" }), at(10, 0), 120)).toBe(true);
   });
+
+  it("enforces the gate on VERIFIED hours (would-close case still rejected)", () => {
+    // hours grounded from Google Places: the closed-now candidate is dropped.
+    expect(ftime(poi({ openTime: "09:00", closeTime: "17:00", hoursVerified: true }), at(8, 0), 120)).toBe(false);
+  });
+
+  it("never rejects on a MODEL_ESTIMATE (unverified hours are not authoritative)", () => {
+    // Same closed-now hours, but they are only the LLM's guess (Places miss):
+    // the candidate is surfaced rather than hard-rejected on an unverifiable fact.
+    expect(ftime(poi({ openTime: "09:00", closeTime: "17:00", hoursVerified: false }), at(8, 0), 120)).toBe(true);
+  });
 });
 
 describe("fuser", () => {

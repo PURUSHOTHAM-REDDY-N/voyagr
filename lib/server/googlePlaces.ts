@@ -4,6 +4,13 @@
  * LLM-guessed openTime/closeTime (lib/ai/index.ts, which only produces a
  * "typical" hour since the model has no ground truth) with real hours before
  * recommendationEngine.ts's ftime() filter runs against them.
+ *
+ * This resolves the two grounded states of a candidate's hours; the caller
+ * (generateRecommendedPois) maps them onto CandidatePoiInput.hoursVerified:
+ *   - a PlaceOpeningHours result => VERIFIED (real, eligible for the ftime gate)
+ *   - undefined (no API key, network/HTTP failure, or no record for the place)
+ *     => UNAVAILABLE, and the LLM's guess is retained as a MODEL_ESTIMATE that
+ *     is displayed but never enforced or asserted as fact.
  */
 
 export type PlaceOpeningHours = {

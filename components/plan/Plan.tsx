@@ -116,7 +116,7 @@ const Plan = ({ planId }: PlanProps) => {
         allowEdit={true}
       />
       <TopPlacesToVisit
-        topPlacesToVisit={plan?.recommendedPois}
+        topPlacesToVisit={plan?.recommendedPois?.length ? plan?.recommendedPois : plan?.topplacestovisit}
         planId={planId}
         isLoading={isLoading || !plan?.contentGenerationState.topplacestovisit}
         allowEdit={true}

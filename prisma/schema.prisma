@@ -81,6 +81,7 @@ type CandidatePoi {
   cost           Float
   coordinates    Coordinates
   score          Float // recommendation-engine rank score, higher is better
+  hoursVerified  Boolean? // true = real hours from Google Places (VERIFIED); false = LLM guess kept on a Places miss (MODEL_ESTIMATE)
 }
 
 
@@ -198,7 +199,12 @@ model PlanSettings {
   toDate              DateTime?
   companion           String?
   travelPace          String?
-  budget              Float?
+  // A tier ("low" | "medium" | "high"), not an arbitrary figure the traveller
+  // types in - see lib/constants.tsx's BUDGET_OPTIONS and
+  // lib/server/recommendationEngine.ts's BUDGET_TIER_CAPS, which maps each
+  // tier to the numeric ceiling the recommendation engine actually filters
+  // and ranks candidates against.
+  budget              String?
   isPublished         Boolean?  @default(false)
   createdAt           DateTime  @default(now())
 

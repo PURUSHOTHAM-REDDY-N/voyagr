@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { generatebatch1, generatebatch2, generateItineraryChunk, generateTopPlaces, generateCandidatePois } from "@/lib/ai";
 import { uploadImageFromUrl } from "@/lib/s3";
 import { withRetry } from "@/lib/server/retry";
-import { recommendPois, CandidatePoiInput, RankedPoi } from "@/lib/server/recommendationEngine";
+import { recommendPois, CandidatePoiInput, RankedPoi, budgetTierToCap } from "@/lib/server/recommendationEngine";
 import { getCurrentWeatherState } from "@/lib/server/weather";
 import { fetchPlaceOpeningHours } from "@/lib/server/googlePlaces";
 import { withTransitTimes } from "@/lib/server/geo";
@@ -376,19 +376,26 @@ export async function generateRecommendedPois(planId: string): Promise<Recommend
 
       // The LLM only guesses "typical" hours - overwrite with the real thing
       // where Places has it, so ftime()'s open-now filter isn't ranking
-      // candidates against a hallucination. Falls back to the LLM's guess
-      // per-candidate (rather than failing the whole batch) on a lookup miss.
+      // candidates against a hallucination. Every candidate is tagged with the
+      // provenance of its hours (hoursVerified): a Places hit is VERIFIED and
+      // eligible for the temporal filter; a miss keeps the LLM's guess as a
+      // MODEL_ESTIMATE, which is surfaced but never used to hard-reject or
+      // asserted as fact. This keeps the opening-hours guarantee true only
+      // where the data is actually grounded, rather than silently trusting a
+      // guess as if it were real.
       const candidatesWithRealHours = await Promise.all(
         candidates.map(async (candidate) => {
           const hours = await fetchPlaceOpeningHours(`${candidate.name}, ${plan.nameoftheplace}`);
-          return hours ? { ...candidate, ...hours } : candidate;
+          return hours
+            ? { ...candidate, ...hours, hoursVerified: true }
+            : { ...candidate, hoursVerified: false };
         })
       );
 
       const ranked = recommendPois(candidatesWithRealHours, {
         weatherState,
         activityPreferences: planSettings?.activityPreferences,
-        budget: planSettings?.budget ?? undefined,
+        budget: budgetTierToCap(planSettings?.budget),
       }).slice(0, 12);
 
       await db.plan.update({

@@ -31,6 +31,9 @@ import {
   User,
   Users2,
   Turtle,
+  Coins,
+  Banknote,
+  Gem,
   Footprints,
   Rabbit,
 } from "lucide-react";
@@ -378,4 +381,14 @@ export const TRAVEL_PACE_OPTIONS = [
   {id: "relaxed", displayName: "Relaxed", icon: Turtle},
   {id: "moderate", displayName: "Moderate", icon: Footprints},
   {id: "fastpaced", displayName: "Fast-Paced", icon: Rabbit},
+];
+
+// A tier, not a typed-in figure - the traveller picks a spending level rather
+// than an arbitrary number. lib/server/recommendationEngine.ts's
+// BUDGET_TIER_CAPS maps each id to the numeric ceiling the deterministic
+// engine actually filters/ranks candidates against.
+export const BUDGET_OPTIONS = [
+  {id: "low", displayName: "Low", icon: Coins},
+  {id: "medium", displayName: "Medium", icon: Banknote},
+  {id: "high", displayName: "High", icon: Gem},
 ];

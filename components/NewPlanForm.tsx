@@ -24,8 +24,8 @@ import { useToast } from "@/components/ui/use-toast";
 import CompanionControl from "@/components/plan/CompanionControl";
 import ActivityPreferences from "@/components/plan/ActivityPreferences";
 import TravelPaceControl from "@/components/plan/TravelPaceControl";
+import BudgetControl from "@/components/plan/BudgetControl";
 import DateRangeSelector from "@/components/common/DateRangeSelector";
-import { Input } from "@/components/ui/input";
 
 const formSchema = z.object({
   placeName: z
@@ -43,7 +43,9 @@ const formSchema = z.object({
   activityPreferences: z.array(z.string()),
   companion: z.optional(z.string()),
   travelPace: z.optional(z.string()),
-  budget: z.optional(z.coerce.number().positive("Budget must be greater than 0")),
+  // A tier ("low" | "medium" | "high"), not a typed-in figure - see
+  // lib/constants.tsx's BUDGET_OPTIONS and BudgetControl.
+  budget: z.optional(z.enum(["low", "medium", "high"])),
 });
 
 export type formSchemaType = z.infer<typeof formSchema>;
@@ -221,17 +223,11 @@ const NewPlanForm = ({
           render={({ field }) => (
             <FormItem>
               <FormLabel>
-                Max budget per activity
+                Budget
                 <span className="font-medium ml-1">(Optional)</span>
               </FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="e.g. 50"
-                  value={field.value ?? ""}
-                  onChange={(e) => field.onChange(e.target.value === "" ? undefined : e.target.value)}
-                />
+                <BudgetControl value={field.value} onChange={(id: string) => field.onChange(id)} />
               </FormControl>
               <FormMessage />
             </FormItem>

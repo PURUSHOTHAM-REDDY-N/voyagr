@@ -186,7 +186,7 @@ const Activity = ({
             {!!act.transitTimeMinutes && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground/70 pl-1 pb-1">
                 <Navigation className="w-3 h-3" />
-                <span>~{act.transitTimeMinutes} min to get here</span>
+                <span>~{act.transitTimeMinutes} min transit (est., straight-line)</span>
               </div>
             )}
             <div className="w-full p-1 overflow-hidden">
