@@ -5,7 +5,15 @@ import { db } from "@/lib/db";
 import { kickOffPlanGeneration } from "@/lib/server/generatePlanContent";
 import { redirect } from "next/navigation";
 import { differenceInDays } from "date-fns";
+import { waitUntil } from "@vercel/functions";
 
+// Generation runs well past this server action's own return (it redirects
+// almost immediately, then keeps going via waitUntil below) - on Vercel,
+// without an explicit maxDuration, the platform is free to kill the
+// invocation shortly after the response is sent, which silently drops the
+// whole itinerary/image generation. A "use server" file may only export
+// async functions, so that config has to live on the page(s) that render
+// the form invoking this action instead - see their `maxDuration` exports.
 export async function generatePlanAction(formData: formSchemaType) {
   const session = await auth();
   const userId = session?.user?.id;
@@ -57,7 +65,7 @@ export async function generatePlanAction(formData: formSchemaType) {
 
   console.log(`createEmptyPlan called by ${userId} on planId : ${newPlan.id}`);
 
-  kickOffPlanGeneration(newPlan.id, placeName);
+  waitUntil(kickOffPlanGeneration(newPlan.id, placeName));
 
   redirect(`/plans/${newPlan.id}/plan?isNewPlan=true`);
 }
