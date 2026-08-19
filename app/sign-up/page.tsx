@@ -83,7 +83,7 @@ export default function SignUpPage() {
 
   return (
     <div className="flex min-h-[calc(100svh-4rem)] items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm p-6">
         <CardHeader>
           <CardTitle>Create your account</CardTitle>
           <CardDescription>Start planning your next trip with Voyagr.</CardDescription>
