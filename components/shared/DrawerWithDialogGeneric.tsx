@@ -73,8 +73,11 @@ const DrawerWithDialog = ({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>{dialogTriggerBtn}</DrawerTrigger>
-      <DrawerContent className="flex flex-col gap-10 p-5">
-        {renderContent()}
+      <DrawerContent className="max-h-[90vh] p-5">
+        <div className="flex max-h-[calc(90vh-2rem)] flex-col overflow-y-auto">
+          {renderContent()}
+        </div>
+        
       </DrawerContent>
     </Drawer>
   );
