@@ -39,6 +39,11 @@ function SignInForm() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
+  const callbackUrl = searchParams.get("callbackUrl");
+  // Preserves the destination across the sign-in <-> sign-up switch, e.g. a
+  // collaborator following an invite link who doesn't have an account yet.
+  const signUpHref = callbackUrl ? `/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/sign-up";
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { email: "", password: "" },
@@ -62,7 +67,7 @@ function SignInForm() {
       return;
     }
 
-    router.push(searchParams.get("callbackUrl") || "/dashboard");
+    router.push(callbackUrl || "/dashboard");
     router.refresh();
   };
 
@@ -108,7 +113,7 @@ function SignInForm() {
         </Form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{" "}
-          <Link href="/sign-up" className="underline hover:text-foreground">
+          <Link href={signUpHref} className="underline hover:text-foreground">
             Sign up
           </Link>
         </p>

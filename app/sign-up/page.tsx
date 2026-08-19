@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -37,10 +37,16 @@ const formSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
 
-export default function SignUpPage() {
+function SignUpForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  const callbackUrl = searchParams.get("callbackUrl");
+  // Preserves the destination across the sign-in <-> sign-up switch, e.g. a
+  // collaborator following an invite link who doesn't have an account yet.
+  const signInHref = callbackUrl ? `/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/sign-in";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -64,11 +70,11 @@ export default function SignUpPage() {
           title: "Account created, but sign-in failed",
           description: "Please sign in manually.",
         });
-        router.push("/sign-in");
+        router.push(signInHref);
         return;
       }
 
-      router.push("/dashboard");
+      router.push(callbackUrl || "/dashboard");
       router.refresh();
     } catch (error) {
       toast({
@@ -82,84 +88,92 @@ export default function SignUpPage() {
   };
 
   return (
+    <Card className="w-full max-w-sm p-6">
+      <CardHeader>
+        <CardTitle>Create your account</CardTitle>
+        <CardDescription>Start planning your next trip with Voyagr.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First name</FormLabel>
+                    <FormControl>
+                      <Input autoComplete="given-name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Last name <span className="font-normal text-muted-foreground">(optional)</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input autoComplete="family-name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" autoComplete="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" autoComplete="new-password" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
+            </Button>
+          </form>
+        </Form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Already have an account?{" "}
+          <Link href={signInHref} className="underline hover:text-foreground">
+            Sign in
+          </Link>
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function SignUpPage() {
+  return (
     <div className="flex min-h-[calc(100svh-4rem)] items-center justify-center p-4">
-      <Card className="w-full max-w-sm p-6">
-        <CardHeader>
-          <CardTitle>Create your account</CardTitle>
-          <CardDescription>Start planning your next trip with Voyagr.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <FormField
-                  control={form.control}
-                  name="firstName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First name</FormLabel>
-                      <FormControl>
-                        <Input autoComplete="given-name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Last name <span className="font-normal text-muted-foreground">(optional)</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input autoComplete="family-name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" autoComplete="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" autoComplete="new-password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create account"}
-              </Button>
-            </form>
-          </Form>
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/sign-in" className="underline hover:text-foreground">
-              Sign in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+      <Suspense>
+        <SignUpForm />
+      </Suspense>
     </div>
   );
 }
