@@ -49,17 +49,10 @@ let notifications = [
     },
     {
         name: "City & Country Guides",
-        description: "Expert tips for every destination",
+        description: "AI-powered tips for every destination",
         time: "Now",
         icon: "🌍",
         color: "#00B894",
-    },
-    {
-        name: "Meta-searched Booking Links",
-        description: "Flights, Hotels, Activities—all in one place",
-        time: "Now",
-        icon: "🔗",
-        color: "#FF7675",
     },
 ];
 

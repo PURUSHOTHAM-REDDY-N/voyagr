@@ -40,8 +40,6 @@ function SignInForm() {
   const { toast } = useToast();
 
   const callbackUrl = searchParams.get("callbackUrl");
-  // Preserves the destination across the sign-in <-> sign-up switch, e.g. a
-  // collaborator following an invite link who doesn't have an account yet.
   const signUpHref = callbackUrl ? `/sign-up?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/sign-up";
 
   const form = useForm<z.infer<typeof formSchema>>({
