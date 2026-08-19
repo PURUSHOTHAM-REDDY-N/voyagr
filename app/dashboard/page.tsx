@@ -1,6 +1,15 @@
 import Dashboard from "@/components/dashboard/Dashboard";
 import { Metadata } from "next";
 
+// Plan creation here kicks off itinerary/image generation via a Server
+// Action (lib/actions/generateplanAction.ts, generateEmptyPlanAction.ts)
+// that redirects almost immediately and continues the actual generation
+// through Vercel's waitUntil. Without raising this above the platform
+// default, Vercel can still kill that work partway through on longer,
+// multi-chunk itineraries - see the "use server" files' notes on why this
+// config can't live there directly.
+export const maxDuration = 300;
+
 export const metadata: Metadata = {
   title: "Dashboard",
   description:

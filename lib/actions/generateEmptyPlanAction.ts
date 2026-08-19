@@ -5,7 +5,11 @@ import { db } from "@/lib/db";
 import { kickOffImageGeneration } from "@/lib/server/generatePlanContent";
 import { redirect } from "next/navigation";
 import { differenceInDays } from "date-fns";
+import { waitUntil } from "@vercel/functions";
 
+// See generatePlanAction.ts's identical note - the maxDuration this needs
+// lives on the page(s) rendering the form that calls this action instead,
+// since a "use server" file may only export async functions.
 export async function generateEmptyPlanAction(formData: formSchemaType) {
   const session = await auth();
   const userId = session?.user?.id;
@@ -57,7 +61,7 @@ export async function generateEmptyPlanAction(formData: formSchemaType) {
 
   console.log(`createEmptyPlan called by ${userId} on planId : ${newPlan.id}`);
 
-  kickOffImageGeneration(newPlan.id, placeName);
+  waitUntil(kickOffImageGeneration(newPlan.id, placeName));
 
   redirect(`/plans/${newPlan.id}/plan?isNewPlan=true`);
 }

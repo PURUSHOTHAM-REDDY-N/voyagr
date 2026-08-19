@@ -463,14 +463,26 @@ async function generateContextAwareBatches(planId: string) {
   ]);
 }
 
-/** Fire off all generation tasks for a newly created AI plan without blocking the caller. */
+/**
+ * Fire off all generation tasks for a newly created AI plan without blocking
+ * the caller. Returns the combined promise (rather than void) so callers on
+ * a serverless platform - the caller's own server action redirects almost
+ * immediately after this - can hand it to something like Vercel's
+ * `waitUntil`, which keeps the function alive until it settles. Without
+ * that, Vercel is free to freeze/kill the invocation the moment the
+ * response is sent, silently dropping this work entirely (unlike a
+ * long-running Node process - local dev, Docker - where the fire-and-forget
+ * promises just keep running because the process itself never exits).
+ */
 export function kickOffPlanGeneration(planId: string, prompt: string) {
-  generatePlanImage(planId, prompt).catch((e) => console.error(`generatePlanImage failed for ${planId}`, e));
-  generateBatch1(planId).catch((e) => console.error(`generateBatch1 failed for ${planId}`, e));
-  generateContextAwareBatches(planId).catch((e) => console.error(`generateContextAwareBatches failed for ${planId}`, e));
+  return Promise.all([
+    generatePlanImage(planId, prompt).catch((e) => console.error(`generatePlanImage failed for ${planId}`, e)),
+    generateBatch1(planId).catch((e) => console.error(`generateBatch1 failed for ${planId}`, e)),
+    generateContextAwareBatches(planId).catch((e) => console.error(`generateContextAwareBatches failed for ${planId}`, e)),
+  ]);
 }
 
-/** Fire off only the image generation task, for empty (non-AI) plans. */
+/** Fire off only the image generation task, for empty (non-AI) plans. See kickOffPlanGeneration's note on why this returns a promise. */
 export function kickOffImageGeneration(planId: string, prompt: string) {
-  generatePlanImage(planId, prompt).catch((e) => console.error(`generatePlanImage failed for ${planId}`, e));
+  return generatePlanImage(planId, prompt).catch((e) => console.error(`generatePlanImage failed for ${planId}`, e));
 }
