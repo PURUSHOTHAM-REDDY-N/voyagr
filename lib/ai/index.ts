@@ -76,6 +76,15 @@ Return only JSON.
 
         format: "json",
 
+        // Hybrid-thinking models (e.g. Qwen3) default to emitting a reasoning
+        // block before the answer, which conflicts with format:"json"'s
+        // grammar-constrained decoding - observed as the model giving up and
+        // returning "{}" for the larger/more structurally demanding schemas
+        // (candidate POIs, itinerary chunks), while still working fine on the
+        // simpler flat-string-array ones. Non-thinking models (e.g. Qwen2.5)
+        // and older Ollama versions just ignore this field.
+        think: false,
+
         options: {
 
           temperature,
@@ -250,10 +259,14 @@ export const generateItineraryChunk = (
 
 /** Fallback only - used when the recommendation engine's output isn't available to derive Top Places to Visit from directly. */
 export const generateTopPlaces = (inputParams: GeneratePlanInputType) => {
+  const preferenceClause =
+    inputParams.activityPreferences && inputParams.activityPreferences.length > 0
+      ? `\n\n  Prioritise places that match the traveller's stated activity preferences (${inputParams.activityPreferences.join(", ")}) over generic must-see spots - a traveller who selected "nightlife" and "adventure" should see venues fitting those categories, not just the default tourist checklist. Only fall back to well-known landmarks if there aren't enough matching places to fill the list.`
+      : "";
   const description = `Generate a description of the top places to visit according to the following schema:
   - Top Places to Visit:
     - An array listing the top places to visit along with their coordinates.
-    - Each place includes a name and coordinates (latitude and longitude).
+    - Each place includes a name and coordinates (latitude and longitude).${preferenceClause}
 
   Ensure that the function response adheres to the schema provided and is in JSON format. The response should not contain anything outside of the defined schema.`;
   return callLocalAI(getPropmpt(inputParams), topPlacesSchema, description);

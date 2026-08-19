@@ -67,7 +67,7 @@ function SignInForm() {
   };
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm p-6">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
         <CardDescription>Welcome back to Voyagr.</CardDescription>

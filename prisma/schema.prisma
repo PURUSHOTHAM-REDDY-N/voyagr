@@ -83,7 +83,6 @@ type CandidatePoi {
   score          Float // recommendation-engine rank score, higher is better
 }
 
-// ---- Collections ----
 
 model Plan {
   id                         String                 @id @default(auto()) @map("_id") @db.ObjectId
@@ -107,10 +106,7 @@ model Plan {
   @@index([userId])
 }
 
-// Auth.js (Credentials + JWT sessions, no adapter/database sessions - see
-// auth.ts) uses this directly. id (Prisma's own ObjectId) is the canonical
-// user identifier throughout the app - every other model's "userId" field
-// stores this value, not a separate external auth-provider id.
+
 model User {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   email        String   @unique
@@ -129,13 +125,7 @@ enum ExpenseCategory {
   others
 }
 
-// Splitwise-style split: who owes what for this expense, in the plan's
-// preferred currency, always summing to exactly Expense.amount (see
-// lib/splitwise.ts's normalizeSplit, which handles the remainder-cent
-// rounding needed to guarantee that). Empty on expenses added before this
-// field existed - lib/splitwise.ts's computeBalances treats an empty splits
-// array as "not shared" and excludes it from balances entirely, rather than
-// guessing who benefited.
+
 type ExpenseSplit {
   userId String
   amount Float

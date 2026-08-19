@@ -408,6 +408,7 @@ export async function generatePlanImage(planId: string, prompt: string) {
 
     const imageObject = await unsplashApi.search.getPhotos({
       query: name,
+      orientation: "landscape",
       page: 1,
       perPage: 1,
     });
